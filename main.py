@@ -2,38 +2,54 @@ import os
 import asyncio
 import json
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import random
 
-# Токен из переменных окружения
 TOKEN = os.environ.get("TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Файл для хранения данных пользователей
 DATA_FILE = "users_data.json"
 
-# Загружаем данные, если файл есть
+# Загрузка данных
 if os.path.exists(DATA_FILE):
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         users = json.load(f)
 else:
     users = {}
 
-# Функция для сохранения данных
 def save_users():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=4)
 
-# Кнопки меню (aiogram 3.x требует text=)
-menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🎰 Крутить рулетку"), KeyboardButton(text="💰 Мой баланс")],
-        [KeyboardButton(text="🏆 Мои призы"), KeyboardButton(text="💳 Пополнить звезды")],
-        [KeyboardButton(text="🛠 Модерация")]
-    ],
-    resize_keyboard=True
-)
+# Инлайн меню
+def get_menu():
+    menu = InlineKeyboardMarkup(row_width=2)
+    menu.add(
+        InlineKeyboardButton("🎰 Крутить рулетку", callback_data="roulette"),
+        InlineKeyboardButton("💰 Мой баланс", callback_data="balance"),
+        InlineKeyboardButton("🏆 Мои призы", callback_data="prizes"),
+        InlineKeyboardButton("💳 Пополнить звезды", callback_data="add_stars"),
+        InlineKeyboardButton("🛠 Модерация", callback_data="moderation")
+    )
+    return menu
+
+# Призы с шансами
+prizes = [
+    ("50⭐", 40),    # 40% шанс
+    ("100⭐", 30),   # 30% шанс
+    ("500⭐", 20),   # 20% шанс
+    ("🎨 NFT", 10)   # 10% шанс
+]
+
+def spin_wheel():
+    rnd = random.randint(1, 100)
+    acc = 0
+    for prize, chance in prizes:
+        acc += chance
+        if rnd <= acc:
+            return prize
+    return prizes[0][0]  # на всякий случай
 
 # /start
 @dp.message()
@@ -42,51 +58,59 @@ async def start(message: types.Message):
     users.setdefault(user_id, {"balance": 100, "prizes": []})
     save_users()
     await message.answer(
-        "🎉 Привет! Добро пожаловать в FortunaNFT 🎰\n\n"
-        "Каждая прокрутка рулетки стоит 30 ⭐.\n"
-        "Призы будут выданы на ваш аккаунт в течение 3 дней.",
-        reply_markup=menu
+        "🎉 Добро пожаловать в FortunaNFT!\n"
+        "✨ Испытай удачу, собирай звезды и редкие NFT!\n"
+        "⚡ Сегодня твой день — крути и выигрывай!",
+        reply_markup=get_menu()
     )
 
-# Обработка кнопок
-@dp.message()
-async def handle_buttons(message: types.Message):
-    user_id = str(message.from_user.id)
+# Обработка нажатий
+@dp.callback_query()
+async def handle_buttons(callback: types.CallbackQuery):
+    user_id = str(callback.from_user.id)
     users.setdefault(user_id, {"balance": 100, "prizes": []})
     user = users[user_id]
+    data = callback.data
 
-    text = message.text
-
-    if text == "🎰 Крутить рулетку":
+    if data == "roulette":
         if user["balance"] < 30:
-            await message.answer("⚠ У вас недостаточно ⭐ для прокрутки.")
+            await callback.message.answer("⚠ У вас недостаточно ⭐ для прокрутки.")
             return
         user["balance"] -= 30
-        prize = random.choice(["50⭐", "100⭐", "500⭐", "🎨 NFT"])
-        user["prizes"].append(prize)
         save_users()
-        await message.answer(
-            f"🎁 Поздравляем! Вы выиграли {prize}\n"
+
+        # Анимация рулетки
+        wheel_options = ["50⭐", "100⭐", "500⭐", "🎨 NFT"]
+        spin_messages = random.choices(wheel_options, k=5)  # 5 итераций
+        for option in spin_messages:
+            await callback.message.answer(f"🎡 {option} …")
+            await asyncio.sleep(0.5)
+
+        final_prize = spin_wheel()
+        user["prizes"].append(final_prize)
+        save_users()
+        await callback.message.answer(
+            f"🏆 ФИНАЛ: Вы выиграли {final_prize}!\n"
             "Призы будут выданы на ваш аккаунт в течение 3 дней."
         )
 
-    elif text == "💰 Мой баланс":
-        await message.answer(f"💎 Ваш баланс: {user['balance']} ⭐")
+    elif data == "balance":
+        await callback.message.answer(f"💎 Ваш баланс: {user['balance']} ⭐")
 
-    elif text == "🏆 Мои призы":
+    elif data == "prizes":
         if user["prizes"]:
-            await message.answer("🏅 Ваши призы:\n" + "\n".join(user["prizes"]))
+            await callback.message.answer("🏅 Ваши призы:\n" + "\n".join(user["prizes"]))
         else:
-            await message.answer("😔 У вас пока нет призов.")
+            await callback.message.answer("😔 У вас пока нет призов.")
 
-    elif text == "💳 Пополнить звезды":
+    elif data == "add_stars":
         user["balance"] += 100
         save_users()
-        await message.answer("💰 Ваш баланс увеличен на 100 ⭐!")
+        await callback.message.answer("💰 Ваш баланс увеличен на 100 ⭐!")
 
-    elif text == "🛠 Модерация":
-        await message.answer("Свяжитесь с модерацией: @ronaldureal")
+    elif data == "moderation":
+        await callback.message.answer("Свяжитесь с модерацией: @ronaldureal")
 
-# Запуск бота
+# Запуск
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
