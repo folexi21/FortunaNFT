@@ -1,99 +1,100 @@
 import os
-import json
-import random
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import Command
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import F
 
-# Токен из переменной окружения на Railway
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+# Твой токен
+BOT_TOKEN = "8710709672:AAHov0L0RHWeXOVBY3wnpIxk25-aL08g_rE"
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 
-# Мини-база пользователей (в будущем можно заменить на файл или базу)
-if os.path.exists("users.json"):
-    with open("users.json", "r") as f:
-        users = json.load(f)
-else:
-    users = {}
+# NFT коллекция
+nfts = [
+    {"id":1,"name":"Ramadan NFT","image":"https://i.imgur.com/8Q4rX9G.png","original_price":150},
+    {"id":2,"name":"UFC NFT","image":"https://i.imgur.com/7oLMv2n.png","original_price":180},
+    {"id":3,"name":"Snubdok NFT","image":"https://i.imgur.com/Z9xP5sK.png","original_price":125},
+    {"id":4,"name":"Cyber Cat","image":"https://i.imgur.com/1BZgplQ.png","original_price":100},
+    {"id":5,"name":"Space Ape","image":"https://i.imgur.com/F5r3iS4.png","original_price":160},
+    {"id":6,"name":"Pixel Panda","image":"https://i.imgur.com/3hKXwFQ.png","original_price":130},
+    {"id":7,"name":"Golden Dog","image":"https://i.imgur.com/4H9uQp2.png","original_price":140},
+    {"id":8,"name":"Neon Lion","image":"https://i.imgur.com/5Vt7jLd.png","original_price":170},
+    {"id":9,"name":"Crypto Whale","image":"https://i.imgur.com/6YdKs8e.png","original_price":200},
+    {"id":10,"name":"Galaxy Fox","image":"https://i.imgur.com/9N8aW3K.png","original_price":155},
+    {"id":11,"name":"Moon Rabbit","image":"https://i.imgur.com/0PlQd7H.png","original_price":145},
+    {"id":12,"name":"Solar Bear","image":"https://i.imgur.com/2Hd7iK9.png","original_price":160},
+    {"id":13,"name":"Quantum Owl","image":"https://i.imgur.com/7kVwP8N.png","original_price":175},
+    {"id":14,"name":"Pixel Shark","image":"https://i.imgur.com/8JpLd6Q.png","original_price":190},
+    {"id":15,"name":"Crypto Tiger","image":"https://i.imgur.com/3Gt2BvE.png","original_price":210},
+]
 
-# Цены и призы
-SPIN_COST = 30
-PRIZES = ["50 ⭐", "100 ⭐", "500 ⭐", "Cheap NFT"]
+# Функция для расчета цены со скидкой 20%
+def discounted_price(price):
+    return int(price * 0.8)
 
-# Создание меню
-def get_menu():
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="🎰 Spin Roulette", callback_data="spin"),
-        InlineKeyboardButton(text="💰 My Balance", callback_data="balance")
+# Главное меню магазина
+def shop_menu():
+    markup = InlineKeyboardMarkup(row_width=2)
+    for nft in nfts:
+        price = discounted_price(nft["original_price"])
+        btn = InlineKeyboardButton(
+            text=f"{nft['name']} ⭐{price} (-20%)",
+            callback_data=f"open_{nft['id']}"
+        )
+        markup.add(btn)
+    return markup
+
+# Меню конкретного NFT
+def nft_actions(nft_id):
+    nft = next((x for x in nfts if x["id"] == nft_id), None)
+    if nft is None:
+        return InlineKeyboardMarkup()
+    price = discounted_price(nft["original_price"])
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton(text=f"💬 Contact Seller (@ronaldureal) ⭐{price}", callback_data=f"contact_{nft_id}"),
+        InlineKeyboardButton(text="⬅ Back to Shop", callback_data="back_shop")
     )
-    builder.row(
-        InlineKeyboardButton(text="📞 Contact Support", url="https://t.me/ronaldureal")
-    )
-    return builder.as_markup()
+    return markup
 
-# Проверка и создание пользователя
-def check_user(user_id):
-    if str(user_id) not in users:
-        users[str(user_id)] = {"stars": 100}  # стартовый баланс
-        save_users()
-
-def save_users():
-    with open("users.json", "w") as f:
-        json.dump(users, f)
-
-# Стартовое сообщение
+# Старт команды
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    check_user(message.from_user.id)
     await message.answer(
-        f"🎉 Welcome to FortunaNFT!\n\n"
-        f"Your adventure in NFT roulette begins here! 🃏\n"
-        f"Press the buttons below to explore your luck!",
-        reply_markup=get_menu()
+        "🎉 Добро пожаловать в FortunaNFT! Здесь ты можешь купить уникальные NFT со скидкой 20%.",
+        reply_markup=shop_menu()
     )
 
-# Обработка нажатий на меню
-@dp.callback_query(F.data == "spin")
-async def spin_roulette(call: types.CallbackQuery):
-    user_id = str(call.from_user.id)
-    check_user(user_id)
+# Обработка нажатий на кнопки
+@dp.callback_query(F.data.startswith("open_"))
+async def open_nft(call: types.CallbackQuery):
+    nft_id = int(call.data.split("_")[1])
+    nft = next((x for x in nfts if x["id"] == nft_id), None)
+    if nft:
+        text = f"🎨 {nft['name']}\n" \
+               f"💰 Original Price: ⭐{nft['original_price']}\n" \
+               f"🔥 Discounted Price: ⭐{discounted_price(nft['original_price'])}\n" \
+               f"Свяжись с продавцом чтобы купить NFT."
+        await call.message.answer_photo(
+            photo=nft["image"],
+            caption=text,
+            reply_markup=nft_actions(nft_id)
+        )
+    await call.answer()
 
-    if users[user_id]["stars"] < SPIN_COST:
-        await call.answer("❌ You don't have enough ⭐ to spin!", show_alert=True)
-        return
+@dp.callback_query(F.data=="back_shop")
+async def back_shop(call: types.CallbackQuery):
+    await call.message.answer("Главное меню магазина:", reply_markup=shop_menu())
+    await call.answer()
 
-    users[user_id]["stars"] -= SPIN_COST
-    prize = random.choice(PRIZES)
-    # Если приз это звезды, добавляем их
-    if "⭐" in prize:
-        stars_amount = int(prize.split()[0])
-        users[user_id]["stars"] += stars_amount
+@dp.callback_query(F.data.startswith("contact_"))
+async def contact(call: types.CallbackQuery):
+    await call.message.answer("Свяжись с продавцом: @ronaldureal")
+    await call.answer()
 
-    save_users()
-    await call.message.edit_text(
-        f"🎰 You spun the roulette!\n\nYou won: {prize}\n"
-        f"Your current balance: {users[user_id]['stars']} ⭐",
-        reply_markup=get_menu()
-    )
-
-@dp.callback_query(F.data == "balance")
-async def show_balance(call: types.CallbackQuery):
-    user_id = str(call.from_user.id)
-    check_user(user_id)
-    await call.message.edit_text(
-        f"💰 Your balance: {users[user_id]['stars']} ⭐",
-        reply_markup=get_menu()
-    )
-
-# Запуск бота
 if __name__ == "__main__":
     import asyncio
-    from aiogram import Bot, Dispatcher
-    from aiogram.utils.platform import get_event_loop
-
     asyncio.run(dp.start_polling(bot))
