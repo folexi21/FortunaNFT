@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import random
 
-# Токен
+# Токен из переменных окружения
 TOKEN = os.environ.get("TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -20,17 +20,17 @@ if os.path.exists(DATA_FILE):
 else:
     users = {}
 
-# Сохраняем данные в файл
+# Функция для сохранения данных
 def save_users():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=4)
 
-# Меню
+# Кнопки меню (aiogram 3.x требует text=)
 menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton("🎰 Крутить рулетку"), KeyboardButton("💰 Мой баланс")],
-        [KeyboardButton("🏆 Мои призы"), KeyboardButton("💳 Пополнить звезды")],
-        [KeyboardButton("🛠 Модерация")]
+        [KeyboardButton(text="🎰 Крутить рулетку"), KeyboardButton(text="💰 Мой баланс")],
+        [KeyboardButton(text="🏆 Мои призы"), KeyboardButton(text="💳 Пополнить звезды")],
+        [KeyboardButton(text="🛠 Модерация")]
     ],
     resize_keyboard=True
 )
