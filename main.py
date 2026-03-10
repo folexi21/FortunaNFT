@@ -1,100 +1,96 @@
 import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import Command
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram import F
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+import asyncio
 
-# Твой токен
 BOT_TOKEN = "8710709672:AAHov0L0RHWeXOVBY3wnpIxk25-aL08g_rE"
-
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+dp = Dispatcher()
 
-# NFT коллекция
+# Список NFT
 nfts = [
-    {"id":1,"name":"Ramadan NFT","image":"https://i.imgur.com/8Q4rX9G.png","original_price":150},
-    {"id":2,"name":"UFC NFT","image":"https://i.imgur.com/7oLMv2n.png","original_price":180},
-    {"id":3,"name":"Snubdok NFT","image":"https://i.imgur.com/Z9xP5sK.png","original_price":125},
-    {"id":4,"name":"Cyber Cat","image":"https://i.imgur.com/1BZgplQ.png","original_price":100},
-    {"id":5,"name":"Space Ape","image":"https://i.imgur.com/F5r3iS4.png","original_price":160},
-    {"id":6,"name":"Pixel Panda","image":"https://i.imgur.com/3hKXwFQ.png","original_price":130},
-    {"id":7,"name":"Golden Dog","image":"https://i.imgur.com/4H9uQp2.png","original_price":140},
-    {"id":8,"name":"Neon Lion","image":"https://i.imgur.com/5Vt7jLd.png","original_price":170},
-    {"id":9,"name":"Crypto Whale","image":"https://i.imgur.com/6YdKs8e.png","original_price":200},
-    {"id":10,"name":"Galaxy Fox","image":"https://i.imgur.com/9N8aW3K.png","original_price":155},
-    {"id":11,"name":"Moon Rabbit","image":"https://i.imgur.com/0PlQd7H.png","original_price":145},
-    {"id":12,"name":"Solar Bear","image":"https://i.imgur.com/2Hd7iK9.png","original_price":160},
-    {"id":13,"name":"Quantum Owl","image":"https://i.imgur.com/7kVwP8N.png","original_price":175},
-    {"id":14,"name":"Pixel Shark","image":"https://i.imgur.com/8JpLd6Q.png","original_price":190},
-    {"id":15,"name":"Crypto Tiger","image":"https://i.imgur.com/3Gt2BvE.png","original_price":210},
+    {"id": 1, "name": "Ramadan NFT", "image": "https://i.ibb.co/9p3cGZQ/ramadan.jpg", "original_price": 100},
+    {"id": 2, "name": "UFC NFT", "image": "https://i.ibb.co/3N0fM1q/ufc.jpg", "original_price": 150},
+    {"id": 3, "name": "Snoop Dogg NFT", "image": "https://i.ibb.co/0s9sH5r/snoop.jpg", "original_price": 200},
+    {"id": 4, "name": "CryptoPunk", "image": "https://i.ibb.co/V3kM1hB/cryptopunk.jpg", "original_price": 120},
+    {"id": 5, "name": "Bored Ape", "image": "https://i.ibb.co/WzcR7Jr/boredape.jpg", "original_price": 250},
+    {"id": 6, "name": "Art Blocks", "image": "https://i.ibb.co/JpkFjVd/artblocks.jpg", "original_price": 180},
+    {"id": 7, "name": "Cool Cat", "image": "https://i.ibb.co/tcZb1Z7/coolcat.jpg", "original_price": 90},
+    {"id": 8, "name": "Meebits", "image": "https://i.ibb.co/FsDb7J2/meebits.jpg", "original_price": 130},
+    {"id": 9, "name": "World of Women", "image": "https://i.ibb.co/hZZpVY8/wow.jpg", "original_price": 160},
+    {"id": 10, "name": "Hashmasks", "image": "https://i.ibb.co/3Y6v5Xk/hashmasks.jpg", "original_price": 140},
+    {"id": 11, "name": "BAYC NFT", "image": "https://i.ibb.co/3vQ7mY5/bayc.jpg", "original_price": 300},
+    {"id": 12, "name": "Mutant Ape", "image": "https://i.ibb.co/4j6mrYV/mutant.jpg", "original_price": 220},
+    {"id": 13, "name": "Pudgy Penguins", "image": "https://i.ibb.co/N9GHtCt/pudgy.jpg", "original_price": 110},
+    {"id": 14, "name": "VeeFriends", "image": "https://i.ibb.co/9Vt4zCt/veefriends.jpg", "original_price": 170},
+    {"id": 15, "name": "Cool Dogs NFT", "image": "https://i.ibb.co/2d0zXyG/cooldogs.jpg", "original_price": 95},
 ]
 
-# Функция для расчета цены со скидкой 20%
-def discounted_price(price):
-    return int(price * 0.8)
-
-# Главное меню магазина
+# Главная клавиатура магазина
 def shop_menu():
-    markup = InlineKeyboardMarkup(row_width=2)
+    markup = InlineKeyboardMarkup()
     for nft in nfts:
-        price = discounted_price(nft["original_price"])
+        price = int(nft["original_price"] * 0.8)  # минус 20%
         btn = InlineKeyboardButton(
-            text=f"{nft['name']} ⭐{price} (-20%)",
-            callback_data=f"open_{nft['id']}"
+            text=f"{nft['name']} ⭐{price}",
+            callback_data=f"nft_{nft['id']}"
         )
         markup.add(btn)
     return markup
 
-# Меню конкретного NFT
+# Клавиатура действий для конкретной NFT
 def nft_actions(nft_id):
     nft = next((x for x in nfts if x["id"] == nft_id), None)
     if nft is None:
         return InlineKeyboardMarkup()
-    price = discounted_price(nft["original_price"])
-    markup = InlineKeyboardMarkup(row_width=2)
+    price = int(nft["original_price"] * 0.8)
+    markup = InlineKeyboardMarkup()
     markup.add(
-        InlineKeyboardButton(text=f"💬 Contact Seller (@ronaldureal) ⭐{price}", callback_data=f"contact_{nft_id}"),
-        InlineKeyboardButton(text="⬅ Back to Shop", callback_data="back_shop")
+        InlineKeyboardButton(
+            text=f"💬 Contact Seller (@ronaldureal) ⭐{price}",
+            url="https://t.me/ronaldureal"
+        ),
+        InlineKeyboardButton(
+            text="⬅ Back to Shop",
+            callback_data="back_shop"
+        )
     )
     return markup
 
-# Старт команды
+# Старт бота
 @dp.message(Command("start"))
 async def start(message: types.Message):
     await message.answer(
-        "🎉 Добро пожаловать в FortunaNFT! Здесь ты можешь купить уникальные NFT со скидкой 20%.",
+        "🎉 Добро пожаловать в наш NFT Shop!\n"
+        "Здесь вы можете выбрать любую NFT и приобрести её на 20% дешевле оригинальной цены.",
         reply_markup=shop_menu()
     )
 
-# Обработка нажатий на кнопки
-@dp.callback_query(F.data.startswith("open_"))
-async def open_nft(call: types.CallbackQuery):
-    nft_id = int(call.data.split("_")[1])
-    nft = next((x for x in nfts if x["id"] == nft_id), None)
-    if nft:
-        text = f"🎨 {nft['name']}\n" \
-               f"💰 Original Price: ⭐{nft['original_price']}\n" \
-               f"🔥 Discounted Price: ⭐{discounted_price(nft['original_price'])}\n" \
-               f"Свяжись с продавцом чтобы купить NFT."
-        await call.message.answer_photo(
-            photo=nft["image"],
-            caption=text,
-            reply_markup=nft_actions(nft_id)
+# Обработка нажатий кнопок
+@dp.callback_query()
+async def handle_callbacks(callback: types.CallbackQuery):
+    data = callback.data
+    if data.startswith("nft_"):
+        nft_id = int(data.split("_")[1])
+        nft = next((x for x in nfts if x["id"] == nft_id), None)
+        if nft:
+            await callback.message.answer_photo(
+                photo=nft["image"],
+                caption=f"{nft['name']}\nОригинальная цена: ⭐{nft['original_price']}\nСкидка: 20%",
+                reply_markup=nft_actions(nft_id)
+            )
+    elif data == "back_shop":
+        await callback.message.answer(
+            "Вернулись в магазин NFT:",
+            reply_markup=shop_menu()
         )
-    await call.answer()
+    await callback.answer()  # Чтобы убрать "часики" в Telegram
 
-@dp.callback_query(F.data=="back_shop")
-async def back_shop(call: types.CallbackQuery):
-    await call.message.answer("Главное меню магазина:", reply_markup=shop_menu())
-    await call.answer()
-
-@dp.callback_query(F.data.startswith("contact_"))
-async def contact(call: types.CallbackQuery):
-    await call.message.answer("Свяжись с продавцом: @ronaldureal")
-    await call.answer()
+# Запуск бота
+async def main():
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(dp.start_polling(bot))
+    asyncio.run(main())
