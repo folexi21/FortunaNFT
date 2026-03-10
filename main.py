@@ -1,102 +1,92 @@
-import random
-from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import os
+import asyncio
+import json
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+import random
 
-# Токен из переменных среды
+# Токен
 TOKEN = os.environ.get("TOKEN")
-
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
-menu = ReplyKeyboardMarkup(resize_keyboard=True)
-menu.add(KeyboardButton("🎰 Крутить рулетку"))
-menu.add(KeyboardButton("💰 Мой баланс"), KeyboardButton("📊 Шансы"))
-menu.add(KeyboardButton("🏆 Мои призы"), KeyboardButton("🛠 Модерация"))
+# Файл для хранения данных пользователей
+DATA_FILE = "users_data.json"
 
-users_data = {}  # {user_id: {"stars": int, "prizes": []}}
+# Загружаем данные, если файл есть
+if os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
+        users = json.load(f)
+else:
+    users = {}
 
-@dp.message_handler(commands=['start'])
+# Сохраняем данные в файл
+def save_users():
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=4)
+
+# Меню
+menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton("🎰 Крутить рулетку"), KeyboardButton("💰 Мой баланс")],
+        [KeyboardButton("🏆 Мои призы"), KeyboardButton("💳 Пополнить звезды")],
+        [KeyboardButton("🛠 Модерация")]
+    ],
+    resize_keyboard=True
+)
+
+# /start
+@dp.message()
 async def start(message: types.Message):
-    uid = message.from_user.id
-    if uid not in users_data:
-        users_data[uid] = {"stars": 100, "prizes": []}
+    user_id = str(message.from_user.id)
+    users.setdefault(user_id, {"balance": 100, "prizes": []})
+    save_users()
+    await message.answer(
+        "🎉 Привет! Добро пожаловать в FortunaNFT 🎰\n\n"
+        "Каждая прокрутка рулетки стоит 30 ⭐.\n"
+        "Призы будут выданы на ваш аккаунт в течение 3 дней.",
+        reply_markup=menu
+    )
 
-    balance = users_data[uid]["stars"]
-    text = f"""
-🎰 FortunaNFT
+# Обработка кнопок
+@dp.message()
+async def handle_buttons(message: types.Message):
+    user_id = str(message.from_user.id)
+    users.setdefault(user_id, {"balance": 100, "prizes": []})
+    user = users[user_id]
 
-💰 Твой баланс: {balance} ⭐
+    text = message.text
 
-Испытай удачу!
+    if text == "🎰 Крутить рулетку":
+        if user["balance"] < 30:
+            await message.answer("⚠ У вас недостаточно ⭐ для прокрутки.")
+            return
+        user["balance"] -= 30
+        prize = random.choice(["50⭐", "100⭐", "500⭐", "🎨 NFT"])
+        user["prizes"].append(prize)
+        save_users()
+        await message.answer(
+            f"🎁 Поздравляем! Вы выиграли {prize}\n"
+            "Призы будут выданы на ваш аккаунт в течение 3 дней."
+        )
 
-💸 Цена прокрутки: 30 ⭐
-"""
-    await message.answer(text, reply_markup=menu)
+    elif text == "💰 Мой баланс":
+        await message.answer(f"💎 Ваш баланс: {user['balance']} ⭐")
 
-@dp.message_handler(lambda m: m.text == "💰 Мой баланс")
-async def show_balance(message: types.Message):
-    uid = message.from_user.id
-    bal = users_data.get(uid, {}).get("stars", 0)
-    await message.answer(f"💰 Баланс: {bal} ⭐")
+    elif text == "🏆 Мои призы":
+        if user["prizes"]:
+            await message.answer("🏅 Ваши призы:\n" + "\n".join(user["prizes"]))
+        else:
+            await message.answer("😔 У вас пока нет призов.")
 
-@dp.message_handler(lambda m: m.text == "📊 Шансы")
-async def chances(message: types.Message):
-    text = """
-📊 Шансы выпадения призов:
+    elif text == "💳 Пополнить звезды":
+        user["balance"] += 100
+        save_users()
+        await message.answer("💰 Ваш баланс увеличен на 100 ⭐!")
 
-❌ Ничего — 60%
-⭐ 50 Stars — 20%
-⭐ 100 Stars — 12%
-⭐ 500 Stars — 6%
-💎 NFT — 2%
+    elif text == "🛠 Модерация":
+        await message.answer("Свяжитесь с модерацией: @ronaldureal")
 
-Цена: 30 ⭐
-"""
-    await message.answer(text)
-
-@dp.message_handler(lambda m: m.text == "🎰 Крутить рулетку")
-async def spin(message: types.Message):
-    uid = message.from_user.id
-    user = users_data.get(uid)
-
-    if user["stars"] < 30:
-        await message.answer("❌ Недостаточно ⭐ для прокрутки.")
-        return
-
-    user["stars"] -= 30
-
-    number = random.randint(1, 100)
-    if number <= 60:
-        res = "😢 Ничего не выпало."
-    elif number <= 80:
-        res = "🎉 Ты выиграл 50 ⭐!"
-        user["stars"] += 50
-    elif number <= 92:
-        res = "🔥 Ты выиграл 100 ⭐!"
-        user["stars"] += 100
-    elif number <= 98:
-        res = "💰 JACKPOT! Ты выиграл 500 ⭐!"
-        user["stars"] += 500
-    else:
-        res = "💎 Ура! Ты выиграл NFT!"
-
-    user["prizes"].append(res)
-    await message.answer("🎰 Крутим рулетку...")
-    await message.answer(res)
-
-@dp.message_handler(lambda m: m.text == "🏆 Мои призы")
-async def show_prizes(message: types.Message):
-    uid = message.from_user.id
-    prizes = users_data.get(uid, {}).get("prizes", [])
-    if not prizes:
-        await message.answer("🏆 Пока нет призов.")
-    else:
-        await message.answer("🏆 Твои призы:\n" + "\n".join(prizes))
-
-@dp.message_handler(lambda m: m.text == "🛠 Модерация")
-async def support(message: types.Message):
-    await message.answer("🛠 Связь с модерацией: @yourusername")
-
+# Запуск бота
 if __name__ == "__main__":
-    executor.start_polling(dp)
+    asyncio.run(dp.start_polling(bot))
