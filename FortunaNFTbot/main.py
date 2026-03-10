@@ -96,7 +96,7 @@ async def show_prizes(message: types.Message):
 
 @dp.message_handler(lambda m: m.text == "🛠 Модерация")
 async def support(message: types.Message):
-    await message.answer("🛠 Связь с модерацией: @yourusername")
+    await message.answer("🛠 Связь с модерацией: @ronaldureal")
 
 if __name__ == "__main__":
     executor.start_polling(dp)
