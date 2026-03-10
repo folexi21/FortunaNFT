@@ -1,11 +1,11 @@
-import os
+ import os
 import asyncio
 import json
 import random
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-TOKEN = os.environ.get("TOKEN")
+TOKEN = os.environ.get("TOKEN")  # В переменные окружения добавьте ваш токен
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
@@ -49,7 +49,7 @@ def main_menu():
             ],
             [
                 InlineKeyboardButton(text="🏆 Мои призы", callback_data="prizes"),
-                InlineKeyboardButton(text="💳 Пополнить звезды", callback_data="add_stars")
+                InlineKeyboardButton(text="💳 Пополнить ⭐", callback_data="add_stars")
             ],
             [
                 InlineKeyboardButton(text="🛠 Модерация", callback_data="moderation")
@@ -76,11 +76,12 @@ async def start(message: types.Message):
     save_users()
     await message.answer(
         "🎉 Добро пожаловать в FortunaNFT!\n"
-        "✨ Испытай удачу и собирай редкие NFT и звезды!",
+        "✨ Испытай удачу и собирай редкие NFT и звезды!\n"
+        "💡 Совет: начинайте с прокрутки рулетки, чтобы выигрывать призы!",
         reply_markup=main_menu()
     )
 
-# Обработка нажатий
+# Обработка нажатий кнопок
 @dp.callback_query()
 async def handle_buttons(callback: types.CallbackQuery):
     user_id = str(callback.from_user.id)
@@ -96,13 +97,15 @@ async def handle_buttons(callback: types.CallbackQuery):
 
     elif data == "roulette":
         if user["balance"] < 30:
-            await callback.message.answer("⚠ У вас недостаточно ⭐ для прокрутки.")
+            await callback.message.answer("⚠ У вас недостаточно ⭐ для прокрутки. Пополните баланс!")
             return
+
+        # Списание 30 звезд
         user["balance"] -= 30
         save_users()
 
         wheel_options = ["50⭐", "100⭐", "500⭐", "🎨 NFT"]
-        # Простая анимация прокрутки
+        # Анимация прокрутки
         for _ in range(5):
             await callback.message.answer(f"🎡 {random.choice(wheel_options)} …")
             await asyncio.sleep(0.5)
